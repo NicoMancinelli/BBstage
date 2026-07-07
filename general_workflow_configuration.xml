@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workflow_configuration>
+  <task_objective>
+    Execute any project or unit of work — software or otherwise — to a production-grade standard: the deliverable fully satisfies the stated need, is verifiable against explicit acceptance criteria defined before work begins, and is maintainable by someone other than its author. The architectural goal is disciplined decomposition: every project reduces to a clear objective, a bounded scope, a sequenced plan with dependencies made explicit, and measurable exit criteria per phase. Performance standards: zero ambiguity in the definition of done; every requirement traceable to a delivered outcome; every decision of consequence recorded with its rationale and alternatives; rework caused by preventable misunderstanding held near zero; delivery estimates carrying explicit confidence levels and revised the moment new information invalidates them. The work must be legible under audit: a competent outsider can reconstruct what was decided, why, what was delivered, and how it was verified, from the artifacts alone.
+  </task_objective>
+  <system_requirements>
+    <planning_and_tracking>
+      A single source of truth for scope and status: a work-breakdown structure or task tracker (issue tracker, kanban board, or structured document) where every task has an owner, a definition of done, a priority, and a status that is never stale by more than one working day. Dependencies between tasks are recorded explicitly, never held in one person's head.
+    </planning_and_tracking>
+    <documentation_system>
+      A decision log (lightweight ADR format: context, decision, alternatives considered, consequences) for every choice that would be expensive to reverse; a living project brief stating objective, scope, non-goals, stakeholders, and constraints; templates for recurring artifacts so quality does not depend on who writes them.
+    </documentation_system>
+    <version_and_change_control>
+      All work products under version control or equivalent revision history (git for code and text, versioned documents otherwise); no untracked "final_v2_REAL" artifacts; a defined change-request path for scope changes so scope moves only by explicit decision, never by drift.
+    </version_and_change_control>
+    <communication_model>
+      Asynchronous-first written communication as the default record; synchronous meetings reserved for genuine deliberation, each with an agenda in and decisions out; a defined escalation path with named owners and expected response times; stakeholder update cadence agreed at kickoff, not improvised.
+    </communication_model>
+    <review_and_verification_infrastructure>
+      Every deliverable class has a designated reviewer and a written checklist; verification methods (tests, dry runs, pilot audiences, second-person checks) chosen per deliverable at planning time; feedback loops with the shortest practical cycle time.
+    </review_and_verification_infrastructure>
+    <risk_management>
+      A risk register maintained from day one: each risk with likelihood, impact, an owner, and a mitigation or acceptance decision; reviewed at every phase boundary; assumptions listed explicitly and each assigned a validation task.
+    </risk_management>
+  </system_requirements>
+  <execution_sequence>
+    <phase_1_data_and_state>
+      1. Define the objective in one sentence and the measurable success criteria before any solutioning: what changes in the world if this project succeeds, and how it will be measured. If success cannot be stated measurably, the project is not ready to start.
+      2. Establish ground truth: gather the actual current state (existing artifacts, prior attempts, real constraints, real deadlines, real budget) from primary sources. Interview stakeholders individually; reconcile conflicting accounts in writing before proceeding.
+      3. Define scope and — with equal rigor — non-goals: an explicit list of what this project will NOT do, signed off by the sponsor. Ambiguity that survives kickoff becomes rework later at multiplied cost.
+      4. Model the state of the work itself: define the lifecycle every task passes through (Backlog → Defined → In-Progress → In-Review → Verified → Done), with entry criteria per state — "Defined" requires an owner and a done-definition; "Done" requires verification evidence. No task skips states.
+      5. Identify all dependencies and the critical path: which tasks block which, which external parties gate progress, and where the single points of failure are. Sequence work so external dependencies and highest-uncertainty items are initiated first.
+      6. Baseline the plan: record scope, milestones, estimates with confidence levels, and the risk register as the version-one baseline against which all subsequent change is measured.
+      7. Exit criterion: sponsor and executors have signed off in writing on objective, success criteria, scope, non-goals, milestones, and the definition of done for the project as a whole.
+    </phase_1_data_and_state>
+    <phase_2_complex_logic>
+      1. Execute in the dependency order established in phase 1, tackling the highest-risk and highest-uncertainty work first so that failure, if it comes, comes early and cheap. Never front-load the easy work to manufacture the appearance of progress.
+      2. Work in bounded increments: decompose every task to units completable and verifiable within a short cycle (one day to one week). Any task that cannot be decomposed to that granularity is not yet understood and returns to definition.
+      3. Enforce single ownership: every task has exactly one accountable owner. Shared ownership is no ownership. Handoffs occur only with an explicit written transfer of context.
+      4. Protect focus and flow: batch similar work, limit work-in-progress per person to a defined cap, and treat context-switching as the performance bottleneck it is. A stalled task is escalated within one working day, not silently parked.
+      5. Record decisions at the moment they are made: any choice that constrains future options gets a decision-log entry with alternatives and rationale while the reasoning is fresh. Memory is not a storage medium.
+      6. Manage change explicitly: new requests enter through the change path — assessed for impact on scope, schedule, and risk — and are accepted, deferred, or rejected by the named decision owner. Nothing enters the plan by side conversation.
+      7. Surface problems immediately and factually: bad news travels fastest. Status reporting distinguishes done (verified), in progress (with % of unknowns resolved, not % of time elapsed), and blocked (with the specific blocker and its owner).
+      8. Exit criterion: all critical-path work items verified done, the risk register shows no open high-impact/high-likelihood items without accepted mitigations, and estimate-versus-actual data has been recorded for calibration.
+    </phase_2_complex_logic>
+    <phase_3_ui_integration>
+      1. Integrate the pieces early and continuously rather than in a single big-bang assembly at the end: combine work products as soon as any two interact, and verify the combination, so integration risk is retired incrementally.
+      2. Package the deliverable for its actual audience: translate internal artifacts into the form the recipient consumes (executive summary for sponsors, runbook for operators, onboarding guide for successors). The internal representation is never the deliverable.
+      3. Verify against the phase-1 success criteria, not against effort expended: walk each original acceptance criterion and attach the evidence that it is met. Criteria that changed mid-project must show the change-log entry authorizing the change.
+      4. Run the deliverable end-to-end under realistic conditions with a representative user or reviewer who was not involved in producing it: fresh eyes are the cheapest defect detector available. Fix or explicitly waive (in writing, by the decision owner) everything found.
+      5. Conduct structured handover: transfer ownership with documentation sufficient that the receiving party can operate, maintain, and extend the deliverable without access to its authors. Handover is complete when the receiver demonstrates use, not when the documents are sent.
+      6. Close formally: obtain written acceptance from the sponsor against the success criteria; archive all artifacts in their agreed system of record; release or reassign resources explicitly.
+      7. Run a retrospective within one week of closure: what was predicted versus what happened, which risks materialized, where estimates broke, and which process changes are adopted (with owners) for the next project. Lessons without adopted changes are anecdotes.
+      8. Exit criterion: sponsor acceptance in writing, handover demonstrated, artifacts archived, retrospective actions assigned.
+    </phase_3_ui_integration>
+  </execution_sequence>
+  <critical_pitfalls>
+    <pitfall name="scope_creep_by_drift">Scope grows through accumulated small verbal agreements no one priced. Prevention: written scope and non-goals baseline, a single change-request path with an impact assessment, and a named decision owner for every acceptance.</pitfall>
+    <pitfall name="ambiguous_definition_of_done">Work oscillates forever because "done" was never operationalized. Prevention: every task carries verifiable completion criteria at definition time; a task without them cannot enter In-Progress.</pitfall>
+    <pitfall name="planning_theater">Elaborate plans built on unvalidated assumptions, mistaken for certainty. Prevention: every assumption logged with a validation task; estimates carry confidence levels; the plan is re-baselined when reality diverges, not defended against it.</pitfall>
+    <pitfall name="ninety_percent_done_syndrome">Status measured by time elapsed or effort spent rather than unknowns resolved, so the last 10% takes 50% of the schedule. Prevention: progress reported as verified increments only; integration and verification run continuously, never deferred to the end.</pitfall>
+    <pitfall name="diffuse_ownership">Tasks owned by "the team" are owned by no one. Prevention: exactly one accountable owner per task, decision, and risk; handoffs are explicit written transfers.</pitfall>
+    <pitfall name="knowledge_hoarding_and_bus_factor">Critical context lives in one head; that person's absence stalls the project. Prevention: decisions and context recorded at the moment they occur; deliverables documented to handover standard as they are produced, not retroactively.</pitfall>
+    <pitfall name="deferred_bad_news">Problems concealed or softened until they are expensive. Prevention: blocked-within-one-day escalation rule, factual status vocabulary, and leadership that visibly rewards early warnings over comfortable reports.</pitfall>
+    <pitfall name="meeting_and_communication_overload">Coordination cost consumes execution capacity. Prevention: async-first written communication as the record, meetings only with agenda-in/decisions-out, and WIP limits that keep coordination surface small.</pitfall>
+    <pitfall name="skipping_the_retrospective">The same failure modes recur across projects because nothing institutionalizes the lessons. Prevention: retrospective scheduled at kickoff as a non-optional milestone, producing adopted process changes with owners.</pitfall>
+    <pitfall name="sunk_cost_continuation">A failing approach is continued because of investment already made. Prevention: predefined kill/pivot criteria at phase boundaries, evaluated against the success criteria by the sponsor, not the executors.</pitfall>
+  </critical_pitfalls>
+  <quality_assurance_gates>
+    <gate id="1" question="Is the project objective stated in one sentence with measurable success criteria agreed in writing by the sponsor?" required_answer="yes"/>
+    <gate id="2" question="Are scope AND explicit non-goals documented and signed off, with a single controlled path for scope change?" required_answer="yes"/>
+    <gate id="3" question="Does every task have exactly one accountable owner and a verifiable definition of done recorded before work began?" required_answer="yes"/>
+    <gate id="4" question="Is every deliverable traceable to at least one acceptance criterion, and every acceptance criterion covered by at least one verified deliverable?" required_answer="yes"/>
+    <gate id="5" question="Is every consequential decision recorded in the decision log with context, alternatives considered, and rationale?" required_answer="yes"/>
+    <gate id="6" question="Are all work products under version control or equivalent revision history in the agreed system of record, with no orphaned local copies?" required_answer="yes"/>
+    <gate id="7" question="Has the risk register been reviewed at every phase boundary, with every high-impact risk carrying an owner and a mitigation or written acceptance?" required_answer="yes"/>
+    <gate id="8" question="Was every logged assumption either validated by evidence or escalated as a risk before work depending on it proceeded?" required_answer="yes"/>
+    <gate id="9" question="Has each deliverable been reviewed against its checklist by a designated reviewer who did not produce it, with findings fixed or explicitly waived in writing?" required_answer="yes"/>
+    <gate id="10" question="Has the integrated deliverable been exercised end-to-end under realistic conditions by a representative user or fresh-eyes reviewer?" required_answer="yes"/>
+    <gate id="11" question="Is status reporting current within one working day, expressed as verified increments and named blockers rather than percent-of-time-elapsed?" required_answer="yes"/>
+    <gate id="12" question="Did every scope change in the plan enter through the change-request path with a recorded impact assessment and decision?" required_answer="yes"/>
+    <gate id="13" question="Is handover documentation sufficient for a competent successor to operate and extend the work without contacting the original authors, and has the receiver demonstrated use?" required_answer="yes"/>
+    <gate id="14" question="Has the sponsor issued written acceptance against the original (or formally amended) success criteria?" required_answer="yes"/>
+    <gate id="15" question="Are all artifacts archived in the agreed system of record and all resources explicitly released or reassigned?" required_answer="yes"/>
+    <gate id="16" question="Has a retrospective been held with estimate-versus-actual analysis, and are its adopted process changes assigned to named owners?" required_answer="yes"/>
+  </quality_assurance_gates>
+</workflow_configuration>
