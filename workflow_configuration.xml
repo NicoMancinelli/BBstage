@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workflow_configuration>
+  <task_objective>
+    Architect and deliver a production-grade desktop application in Python or Rust that pairs a rich, responsive GUI with a fully decoupled asynchronous core. The architectural goal is strict unidirectional data flow: an immutable-by-default domain model, a single authoritative state store, and a UI layer that is a pure projection of state. Performance standards: sustained 60 FPS render loop (frame budget 16.6 ms, main thread never blocked longer than 4 ms by application code); cold start under 1.5 s; UI-perceived latency under 100 ms for all interactive operations, with anything longer delegated to background workers and surfaced via progress state; steady-state memory flat under soak testing (zero unbounded growth over 24 h); graceful degradation and cancellation for all long-running operations. The system must be deterministic under test: every business rule reachable and verifiable without instantiating any UI component.
+  </task_objective>
+  <system_requirements>
+    <language_selection>
+      Choose Rust when memory safety, binary distribution, and predictable latency dominate; choose Python when iteration speed and ecosystem breadth (data, ML, scientific) dominate. Do not mix at the UI boundary; if both are needed, isolate Rust as a PyO3/maturin extension module beneath a Python shell.
+    </language_selection>
+    <ui_frameworks>
+      <python>PySide6/Qt 6 (QML for rich composited UI, Widgets for dense desktop tooling); acceptable alternative: Dear PyGui for immediate-mode tooling UIs.</python>
+      <rust>Primary: Tauri 2 (webview shell, Rust core) for rich product UI; egui/eframe for immediate-mode tooling; Slint or Iced for declarative retained-mode native UI.</rust>
+    </ui_frameworks>
+    <concurrency_models>
+      <python>asyncio event loop for I/O-bound orchestration, bridged to Qt via qasync; concurrent.futures.ProcessPoolExecutor for CPU-bound work (GIL bypass); QThreadPool/QRunnable only for Qt-object-adjacent background tasks; all cross-thread UI mutation exclusively via queued signal/slot connections.</python>
+      <rust>tokio multi-threaded runtime for async I/O; rayon for data-parallel CPU work; dedicated UI thread owned by the framework; cross-thread communication via bounded tokio::sync::mpsc / watch channels; shared state via Arc with interior mutability limited to RwLock/Mutex at the store boundary, never scattered through domain types.</rust>
+    </concurrency_models>
+    <core_dependencies>
+      <python>pydantic v2 (validated domain models), attrs/dataclasses (frozen value objects), qasync, structlog, pytest + pytest-asyncio + pytest-qt + hypothesis, mypy --strict, ruff, uv for lockfile-based dependency pinning.</python>
+      <rust>serde + serde_json (serialization), thiserror (library errors) + anyhow (application errors only at the shell), tracing + tracing-subscriber (structured telemetry), tokio, rayon, proptest, criterion (benchmarks), cargo-deny (license/advisory audit), clippy with -D warnings.</rust>
+    </core_dependencies>
+    <build_and_distribution>
+      Reproducible builds from a committed lockfile (uv.lock / Cargo.lock); CI matrix across all target OSes; signed release artifacts; single command bootstraps a working dev environment.
+    </build_and_distribution>
+  </system_requirements>
+  <execution_sequence>
+    <phase_1_data_and_state>
+      1. Model the domain first, in a UI-free crate/package (core/): define entities, value objects, and enumerated state machines as types; make illegal states unrepresentable (Rust enums / Python tagged unions with exhaustive matching). No framework imports permitted in this layer — enforce with an import-linter contract (Python) or crate dependency graph (Rust).
+      2. Define the single application state tree: one root AppState aggregate, versioned, serializable, with every field owned by exactly one reducer/command handler. Document invariants as executable assertions.
+      3. Specify the mutation protocol before writing any mutation: state changes occur only through explicit Actions/Commands dispatched to the store; the store applies them serially (single writer), emits immutable snapshots or granular change notifications to subscribers. Direct field mutation from outside the store is a build failure, not a convention.
+      4. Design async state explicitly: every remote or long-running resource is modeled as a state machine (Idle → Loading → Loaded(data) | Failed(error)), never as a bare Optional/None that conflates "not yet" with "absent". Include cancellation tokens and staleness/epoch counters in the design.
+      5. Define persistence and migration: schema version embedded in all persisted state; forward migration functions written and tested alongside every schema change.
+      6. Exit criterion: the entire state layer is exercised by property-based tests (hypothesis/proptest) that dispatch random action sequences and verify invariants, with zero UI code in existence.
+    </phase_1_data_and_state>
+    <phase_2_complex_logic>
+      1. Implement business logic as pure functions over domain types wherever possible: inputs and outputs only, effects returned as data (Command/Effect objects) and executed by a thin interpreter at the edge. This makes the complex core trivially testable and thread-agnostic.
+      2. Memory safety: in Rust, forbid unsafe in the core (#![forbid(unsafe_code)]); confine any required unsafe to a single audited module with documented invariants and Miri coverage. In Python, prevent leak-shaped patterns structurally: weak references for observer registrations, explicit lifecycle (close/aclose) on every resource via context managers, no module-level mutable caches without eviction policy.
+      3. Concurrency discipline: single-writer state store; all shared data crosses threads as immutable snapshots or through channels — never as shared mutable references. Every spawned task is owned (structured concurrency): Python asyncio.TaskGroup, Rust JoinSet — no fire-and-forget spawns. Every await point on external I/O carries a timeout and a cancellation path.
+      4. Backpressure: all queues and channels are bounded; define the overflow policy (drop-oldest, coalesce, or block-producer) per channel at design time. Event coalescing is mandatory for high-frequency producers (file watchers, tickers, progress streams).
+      5. Performance: establish criterion/pytest-benchmark baselines for the hot paths before optimizing; profile (perf/py-spy/tracing spans) before touching code; optimize allocation patterns (arena/pooling in Rust, avoiding per-frame object churn in Python) only where the profile proves it. Record budgets in the benchmark suite so regressions fail CI.
+      6. Error taxonomy: distinguish recoverable domain errors (typed, returned) from programmer errors (panic/assert) from environmental failures (retried with jittered exponential backoff and circuit breaking). No blanket exception swallowing; every error path either recovers meaningfully or propagates with context.
+      7. Exit criterion: core logic reaches its coverage and mutation-testing thresholds, passes race detection (loom for critical Rust lock-free sections; ThreadSanitizer where applicable; asyncio debug mode with slow-callback logging in Python), and meets benchmark budgets — all headless.
+    </phase_2_complex_logic>
+    <phase_3_ui_integration>
+      1. Introduce a ViewModel/presenter layer that adapts store snapshots into render-ready view state (formatted strings, visibility flags, list deltas). Views bind to ViewModels only; ViewModels hold zero business logic and never touch I/O.
+      2. Threading contract: the UI thread does exactly three things — render, translate input events into dispatched Actions, and apply state-change notifications to widgets. All Action handling, I/O, and computation occur off-thread; results re-enter the UI thread solely via the framework's marshaling primitive (Qt queued signals / Tauri events / iced Command / egui context request-repaint).
+      3. Async bridging: wire the async runtime to the UI loop once, at startup, in one module (qasync loop policy; Tauri's managed tokio runtime; a dedicated runtime handle passed to iced/egui). Long operations dispatch Loading state immediately, stream progress via coalesced channel updates, and commit terminal state atomically. Every in-flight operation is cancellable from the UI and cancelled automatically on view teardown.
+      4. Staleness protection: tag every async response with the request epoch captured at dispatch; the reducer discards responses whose epoch does not match current state, eliminating out-of-order overwrite races from rapid user input.
+      5. Rendering discipline: virtualize all large collections (model/view with lazy fetch, not eager widget-per-row); batch and debounce store-to-UI notifications to at most one coalesced update per frame; keep per-frame allocations near zero on hot paths.
+      6. UI lifecycle hygiene: every subscription created on view construction is disposed on view destruction (RAII guards in Rust, context-managed connections or parent-owned QObject trees in Python); verify with a leak test that repeatedly opens and closes each view while asserting stable object counts.
+      7. Exit criterion: automated UI smoke tests (pytest-qt / WebDriver against Tauri / framework harness) prove that a deliberately slow (5 s) backend operation leaves the UI interactive, progress visible, and cancellation functional, with frame-time instrumentation showing no main-thread stall over budget.
+    </phase_3_ui_integration>
+  </execution_sequence>
+  <critical_pitfalls>
+    <pitfall name="blocking_the_ui_thread">Synchronous I/O, joins, or heavy computation on the render thread. Prevention: the UI layer is structurally forbidden from importing I/O modules; all work enters through the dispatch boundary; CI lint enforces the import contract.</pitfall>
+    <pitfall name="race_conditions_on_shared_state">Multiple writers mutating state concurrently, or async responses landing out of order. Prevention: single-writer store, message-passing over shared mutation, epoch-tagged responses, bounded channels; loom/TSan/property tests over interleavings.</pitfall>
+    <pitfall name="memory_leaks_via_observers_and_closures">Signal/callback subscriptions and closures capturing widgets or self, keeping dead views alive; Rust Rc/Arc reference cycles in callback graphs. Prevention: weak references for all observer registrations, scoped subscription guards disposed with the view, Weak for back-edges, open/close leak tests in CI.</pitfall>
+    <pitfall name="tightly_coupled_layers">Business logic reaching into widgets, or widgets querying databases. Prevention: enforced dependency direction UI → ViewModel → Store → Domain, with the domain depending on nothing; dependency inversion (traits/Protocols) for all effects; architecture conformance checked by tooling, not review vigilance.</pitfall>
+    <pitfall name="unstructured_concurrency">Fire-and-forget tasks that outlive their owner, swallow exceptions, or write to torn-down views. Prevention: TaskGroup/JoinSet ownership everywhere, cancellation propagated on scope exit, a global assertion that no orphan tasks survive scene teardown.</pitfall>
+    <pitfall name="unbounded_queues_and_event_storms">High-frequency events flooding the UI or exhausting memory. Prevention: bounded channels with explicit overflow policy, coalescing/debouncing at every producer-consumer boundary, load-shedding metrics.</pitfall>
+    <pitfall name="conflated_async_states">Using None/empty to mean both "loading" and "no data", causing flicker and phantom-empty bugs. Prevention: explicit Idle/Loading/Loaded/Failed state machines rendered exhaustively.</pitfall>
+    <pitfall name="premature_or_blind_optimization">Optimizing without profiles, or caching without invalidation strategy. Prevention: benchmark baselines first, profile-guided changes only, every cache paired with an eviction and invalidation test.</pitfall>
+    <pitfall name="error_swallowing">Blanket except/catch that hides corruption and turns bugs into silent misbehavior. Prevention: typed error taxonomy, no bare excepts (lint-enforced), all unexpected errors surfaced to telemetry and the user-facing error boundary.</pitfall>
+  </critical_pitfalls>
+  <quality_assurance_gates>
+    <gate id="1" question="Does the domain/core layer build and pass all tests with zero UI framework imports?" required_answer="yes"/>
+    <gate id="2" question="Is every state mutation routed through the single dispatch boundary, with direct external mutation impossible (compile error or lint failure)?" required_answer="yes"/>
+    <gate id="3" question="Do static checks pass at maximum strictness (mypy --strict and ruff clean; or cargo clippy -D warnings, rustfmt clean, forbid(unsafe_code) in core)?" required_answer="yes"/>
+    <gate id="4" question="Do property-based tests over random action sequences uphold all documented state invariants?" required_answer="yes"/>
+    <gate id="5" question="Is every async resource modeled as an explicit Idle/Loading/Loaded/Failed state machine, with exhaustive rendering of each variant?" required_answer="yes"/>
+    <gate id="6" question="Is every spawned task owned by a structured-concurrency scope, and does an automated test confirm zero orphan tasks and zero leaked subscriptions after view open/close cycles?" required_answer="yes"/>
+    <gate id="7" question="Does every external I/O call have a timeout, a cancellation path, and a tested failure branch?" required_answer="yes"/>
+    <gate id="8" question="Are all channels/queues bounded with an explicitly chosen and tested overflow policy?" required_answer="yes"/>
+    <gate id="9" question="Does the slow-backend UI test (5 s operation) demonstrate a responsive UI, visible progress, working cancellation, and no main-thread stall beyond the frame budget?" required_answer="yes"/>
+    <gate id="10" question="Do criterion/pytest-benchmark results meet the recorded performance budgets, with regression failure wired into CI?" required_answer="yes"/>
+    <gate id="11" question="Does a 24-hour (or CI-compressed equivalent) soak test show flat memory and no handle/file-descriptor growth?" required_answer="yes"/>
+    <gate id="12" question="Do race-detection tools (loom/TSan for Rust critical sections; asyncio debug and interleaving tests for Python) report zero findings on concurrent paths?" required_answer="yes"/>
+    <gate id="13" question="Is persisted state versioned, and does a test load every prior schema version through the migration chain successfully?" required_answer="yes"/>
+    <gate id="14" question="Are dependency lockfiles committed, licenses and security advisories audited (cargo-deny / pip-audit), and builds reproducible in CI across all target platforms?" required_answer="yes"/>
+    <gate id="15" question="Has a second engineer reviewed the change with the architecture conformance report (dependency direction, import contracts) attached and passing?" required_answer="yes"/>
+    <gate id="16" question="Do release artifacts build, sign, install, launch, and complete the smoke suite on every target OS?" required_answer="yes"/>
+  </quality_assurance_gates>
+</workflow_configuration>
